@@ -1,0 +1,48 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>🌧 Smart Clothes Drying Alert</title>
+    <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>🌧 Smart Clothes Drying Alert</h1>
+            <p>Never get caught with wet clothes in the rain again!</p>
+        </header>
+        
+        <main>
+            <form id="subscription-form">
+                <div class="form-group">
+                    <label for="email">Email:</label>
+                    <input type="email" id="email" name="email" required>
+                    <span class="error" id="email-error"></span>
+                </div>
+                
+                <div class="form-group">
+                    <label for="location">City or ZIP Code:</label>
+                    <div class="location-search-container">
+                        <input type="text" id="location" name="location" placeholder="e.g., London, New York, or ZIP code" required>
+                        <button type="button" id="search-location-btn" class="search-btn">🔍</button>
+                    </div>
+                    <div id="location-suggestions" class="suggestions-container"></div>
+                    <span class="error" id="location-error"></span>
+                    <small class="help-text">Enter a city name (e.g., London, London,UK), ZIP code, or use the location button</small>
+                </div>
+                
+                <div class="form-buttons">
+                    <button type="button" id="use-location-btn">Use My Location</button>
+                    <button type="button" id="check-weather-btn">Check Weather</button>
+                    <button type="submit">Subscribe</button>
+                </div>
+            </form>
+            
+            <div id="message-container"></div>
+        </main>
+    </div>
+    
+    <script src="script.js"></script>
+</body>
+</html>
