@@ -34,6 +34,26 @@
                     <small class="help-text">Enter a city name (e.g., London, London,UK), ZIP code, or use the location button</small>
                 </div>
                 
+                <!-- New section for customizable alert thresholds -->
+                <div class="form-group">
+                    <label for="rain-threshold">Rain Sensitivity:</label>
+                    <select id="rain-threshold" name="rain-threshold">
+                        <option value="low">Low (Only heavy rain)</option>
+                        <option value="medium" selected>Medium (Moderate and heavy rain)</option>
+                        <option value="high">High (Any chance of rain)</option>
+                    </select>
+                    <small class="help-text">Choose how sensitive you want to be to rain alerts</small>
+                </div>
+                
+                <!-- New section for multiple locations -->
+                <div class="form-group">
+                    <label>Additional Locations:</label>
+                    <div id="additional-locations">
+                        <input type="text" class="additional-location" placeholder="Add another location (optional)">
+                    </div>
+                    <button type="button" id="add-location-btn">+ Add Another Location</button>
+                </div>
+                
                 <div class="form-buttons">
                     <button type="button" id="use-location-btn">Use My Location</button>
                     <button type="button" id="check-weather-btn">Check Weather</button>
@@ -42,6 +62,12 @@
             </form>
             
             <div id="message-container"></div>
+            
+            <!-- New section for displaying tracked locations -->
+            <div id="tracked-locations" class="tracked-locations-section" style="display: none;">
+                <h3>Your Tracked Locations</h3>
+                <ul id="locations-list"></ul>
+            </div>
         </main>
     </div>
     

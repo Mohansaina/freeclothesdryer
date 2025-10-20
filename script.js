@@ -7,16 +7,23 @@ const emailInput = document.getElementById('email');
 const locationInput = document.getElementById('location');
 const useLocationBtn = document.getElementById('use-location-btn');
 const searchLocationBtn = document.getElementById('search-location-btn');
-const checkWeatherBtn = document.getElementById('check-weather-btn'); // Add this line
+const checkWeatherBtn = document.getElementById('check-weather-btn');
 const emailError = document.getElementById('email-error');
 const locationError = document.getElementById('location-error');
 const messageContainer = document.getElementById('message-container');
 const locationSuggestions = document.getElementById('location-suggestions');
+const addLocationBtn = document.getElementById('add-location-btn');
+const additionalLocationsContainer = document.getElementById('additional-locations');
+const trackedLocationsSection = document.getElementById('tracked-locations');
+const locationsList = document.getElementById('locations-list');
+const rainThresholdSelect = document.getElementById('rain-threshold');
 
 // Store subscription data
 let subscriptionData = null;
 let autoCheckInterval = null; // For automatic weather checking
 let lastAlertTime = null; // To prevent duplicate alerts
+let trackedLocations = []; // Store multiple locations
+let rainSensitivity = 'medium'; // Default sensitivity
 
 // Form submission handler
 form.addEventListener('submit', async (e) => {
@@ -30,12 +37,37 @@ form.addEventListener('submit', async (e) => {
     const isValid = validateForm();
     
     if (isValid) {
+        // Get rain sensitivity level
+        rainSensitivity = rainThresholdSelect.value;
+        
         // Store subscription data for potential email notification
         const locationValue = locationInput.value.trim();
         subscriptionData = {
             email: emailInput.value.trim(),
-            location: locationValue
+            location: locationValue,
+            rainSensitivity: rainSensitivity
         };
+        
+        // Add primary location to tracked locations
+        trackedLocations = [{
+            location: locationValue,
+            sensitivity: rainSensitivity
+        }];
+        
+        // Add additional locations
+        const additionalLocationInputs = document.querySelectorAll('.additional-location');
+        additionalLocationInputs.forEach(input => {
+            const loc = input.value.trim();
+            if (loc) {
+                trackedLocations.push({
+                    location: loc,
+                    sensitivity: rainSensitivity // Use same sensitivity for all for now
+                });
+            }
+        });
+        
+        // Show tracked locations
+        displayTrackedLocations();
         
         // Show message about precise location tracking
         if (locationValue.includes(',')) {
@@ -56,6 +88,50 @@ form.addEventListener('submit', async (e) => {
     }
 });
 
+// Add location button handler
+addLocationBtn.addEventListener('click', () => {
+    const newLocationInput = document.createElement('input');
+    newLocationInput.type = 'text';
+    newLocationInput.className = 'additional-location';
+    newLocationInput.placeholder = 'Add another location (optional)';
+    
+    const removeBtn = document.createElement('button');
+    removeBtn.type = 'button';
+    removeBtn.className = 'remove-location-btn';
+    removeBtn.textContent = 'Remove';
+    removeBtn.addEventListener('click', () => {
+        additionalLocationsContainer.removeChild(newLocationInput.parentNode);
+    });
+    
+    const container = document.createElement('div');
+    container.style.display = 'flex';
+    container.style.gap = '10px';
+    container.style.marginBottom = '10px';
+    
+    container.appendChild(newLocationInput);
+    container.appendChild(removeBtn);
+    additionalLocationsContainer.appendChild(container);
+});
+
+// Display tracked locations
+function displayTrackedLocations() {
+    if (trackedLocations.length > 0) {
+        trackedLocationsSection.style.display = 'block';
+        locationsList.innerHTML = '';
+        
+        trackedLocations.forEach((locData, index) => {
+            const li = document.createElement('li');
+            li.innerHTML = `
+                <span>${locData.location}</span>
+                <span>Sensitivity: ${locData.sensitivity}</span>
+            `;
+            locationsList.appendChild(li);
+        });
+    } else {
+        trackedLocationsSection.style.display = 'none';
+    }
+}
+
 // Start automatic weather checking every 3 hours
 function startAutoWeatherChecking() {
     // Clear any existing interval
@@ -65,13 +141,15 @@ function startAutoWeatherChecking() {
     
     // Set up automatic checking every 3 hours (10800000 milliseconds)
     autoCheckInterval = setInterval(async () => {
-        if (subscriptionData) {
-            console.log('🔄 Automatically checking weather conditions...');
-            await checkWeatherAutomatically();
+        if (subscriptionData && trackedLocations.length > 0) {
+            console.log('🔄 Automatically checking weather conditions for all locations...');
+            for (const locData of trackedLocations) {
+                await checkWeatherAutomatically(locData.location, locData.sensitivity);
+            }
         }
     }, 10800000); // 3 hours in milliseconds
     
-    showMessage('✅ Automatic weather checking enabled! Will check every 3 hours.', 'success');
+    showMessage('✅ Automatic weather checking enabled! Will check every 3 hours for all locations.', 'success');
 }
 
 // Stop automatic weather checking
@@ -84,19 +162,16 @@ function stopAutoWeatherChecking() {
 }
 
 // Enhanced automatic weather checking function
-async function checkWeatherAutomatically() {
-    if (!subscriptionData) return;
-    
+async function checkWeatherAutomatically(location, sensitivity) {
     try {
         let data;
         let isExactLocation = false;
         let exactCoordinates = null;
-        const locationValue = subscriptionData.location;
         
         // Check if location is coordinates (lat, lon) or city name
-        if (locationValue.includes(',')) {
+        if (location.includes(',')) {
             // Coordinates format: "lat,lon" (without space)
-            const coords = locationValue.split(',');
+            const coords = location.split(',');
             const lat = coords[0].trim();
             const lon = coords[1].trim();
             
@@ -110,7 +185,7 @@ async function checkWeatherAutomatically() {
             exactCoordinates = { lat: parseFloat(lat), lon: parseFloat(lon) };
         } else {
             // City name or ZIP code
-            data = await fetchWeatherByCity(locationValue);
+            data = await fetchWeatherByCity(location);
             // Try to get coordinates for the city for more precise tracking
             if (data.city && data.city.coord) {
                 exactCoordinates = { 
@@ -122,7 +197,7 @@ async function checkWeatherAutomatically() {
         }
         
         // Check if rain is expected in the next few hours
-        const rainInfo = checkForRainWithDetails(data);
+        const rainInfo = checkForRainWithDetails(data, sensitivity);
         
         // Check if we should send an alert (only if rain is expected and we haven't sent an alert recently)
         if (rainInfo.rainExpected) {
@@ -138,7 +213,7 @@ async function checkWeatherAutomatically() {
                 }
                 
                 // Send enhanced alert
-                await sendEnhancedWeatherAlert(locationDisplay, rainInfo, data);
+                await sendEnhancedWeatherAlert(locationDisplay, rainInfo, data, sensitivity);
             }
         }
     } catch (error) {
@@ -148,7 +223,7 @@ async function checkWeatherAutomatically() {
 }
 
 // Enhanced weather alert function with actual email sending
-async function sendEnhancedWeatherAlert(location, rainInfo, weatherData) {
+async function sendEnhancedWeatherAlert(location, rainInfo, weatherData, sensitivity) {
     // Show notification to user
     let alertMessage = `📧 Weather Alert for ${subscriptionData.email}!
     
@@ -183,6 +258,7 @@ async function sendEnhancedWeatherAlert(location, rainInfo, weatherData) {
 📊 Precipitation: ${rainInfo.precipitation}mm expected
 🚨 Intensity: ${intensityMessage}
 🕒 Alert time: ${new Date().toLocaleString()}
+🎯 Sensitivity level: ${sensitivity}
 
 Action required: Bring your clothes inside immediately to protect them from the rain!`;
     
@@ -199,7 +275,8 @@ Action required: Bring your clothes inside immediately to protect them from the 
             precipitation: rainInfo.precipitation,
             rain_intensity: intensityMessage,
             next_rain_time: rainInfo.nextRainTime || 'Unknown',
-            alert_time: new Date().toLocaleString()
+            alert_time: new Date().toLocaleString(),
+            sensitivity_level: sensitivity
         };
         
         // Send email using EmailJS with your provided service ID and template ID
@@ -382,8 +459,8 @@ checkWeatherBtn.addEventListener('click', async () => {
         const windSpeed = data.list[0].wind ? Math.round(data.list[0].wind.speed) : 0;
         const pressure = data.list[0].main.pressure;
         
-        // Check for rain in the next few hours
-        const rainInfo = checkForRainWithDetails(data);
+        // Check for rain in the next few hours with current sensitivity
+        const rainInfo = checkForRainWithDetails(data, rainThresholdSelect.value);
         
         let locationDisplay = data.city.name;
         if (isExactLocation && exactCoordinates) {
@@ -548,8 +625,8 @@ async function checkWeather() {
             }
         }
         
-        // Check if rain is expected in the next few hours
-        const rainInfo = checkForRainWithDetails(data);
+        // Check if rain is expected in the next few hours with current sensitivity
+        const rainInfo = checkForRainWithDetails(data, rainThresholdSelect.value);
         
         if (rainInfo.rainExpected) {
             let locationDisplay = data.city.name;
@@ -587,11 +664,12 @@ Wind speed: ${rainInfo.windSpeed} m/s
 Chance of rain: ${rainInfo.chanceOfRain}%
 Precipitation: ${rainInfo.precipitation}mm expected
 Intensity: ${intensityMessage}
+🎯 Sensitivity level: ${rainThresholdSelect.value}
 Bring your clothes inside immediately!`;
             
             showMessage(rainMessage, 'error');
             // Send actual email notification
-            await sendEnhancedWeatherAlert(locationDisplay, rainInfo, data);
+            await sendEnhancedWeatherAlert(locationDisplay, rainInfo, data, rainThresholdSelect.value);
         } else {
             let locationDisplay = data.city.name;
             if (isExactLocation && exactCoordinates) {
@@ -609,8 +687,8 @@ We'll notify you if conditions change.`, 'success');
     }
 }
 
-// Check if rain is expected in the forecast with detailed information
-function checkForRainWithDetails(weatherData) {
+// Check if rain is expected in the forecast with detailed information and sensitivity
+function checkForRainWithDetails(weatherData, sensitivity) {
     // Check more forecast periods for better accuracy (next 5 periods = 15 hours)
     // The OpenWeatherMap API provides forecasts in 3-hour intervals
     const forecasts = weatherData.list.slice(0, 5);
@@ -630,15 +708,19 @@ function checkForRainWithDetails(weatherData) {
         
         // Check if rain data exists for this period
         if (forecast.rain && forecast.rain['3h'] > 0) {
-            rainExpected = true;
             const rainAmount = forecast.rain['3h'] || 0;
             precipitation += rainAmount;
             
-            // Determine rain intensity
-            if (rainAmount > 5) {
-                rainIntensity = 'heavy';
-            } else if (rainAmount > 2) {
+            // Determine rain intensity based on sensitivity
+            if (sensitivity === 'high' && rainAmount > 0) {
+                rainIntensity = 'light';
+                rainExpected = true;
+            } else if (sensitivity === 'medium' && rainAmount > 2) {
                 rainIntensity = 'moderate';
+                rainExpected = true;
+            } else if (sensitivity === 'low' && rainAmount > 5) {
+                rainIntensity = 'heavy';
+                rainExpected = true;
             }
             
             // Record when rain is expected
@@ -651,22 +733,34 @@ function checkForRainWithDetails(weatherData) {
         // Weather codes 200-299 (thunderstorm), 300-399 (drizzle), 500-599 (rain)
         const weatherCode = forecast.weather[0].id;
         if ((weatherCode >= 200 && weatherCode < 600)) {
-            rainExpected = true;
-            // Estimate chance of rain based on weather condition
-            let currentChance = 0;
-            if (weatherCode >= 500 && weatherCode < 600) { // Rain codes
-                currentChance = forecast.pop * 100 || 0;
-            } else if (weatherCode >= 300 && weatherCode < 400) { // Drizzle codes
-                currentChance = (forecast.pop * 100 || 0) * 0.7;
-            } else if (weatherCode >= 200 && weatherCode < 300) { // Thunderstorm codes
-                currentChance = (forecast.pop * 100 || 0) * 1.2;
+            // Apply sensitivity filter
+            let meetsSensitivity = false;
+            if (sensitivity === 'high') {
+                meetsSensitivity = true; // Any rain condition
+            } else if (sensitivity === 'medium' && weatherCode >= 300) {
+                meetsSensitivity = true; // Moderate to heavy rain
+            } else if (sensitivity === 'low' && weatherCode >= 500) {
+                meetsSensitivity = true; // Heavy rain only
             }
             
-            chanceOfRain = Math.max(chanceOfRain, currentChance);
-            
-            // Record when rain is expected
-            if (!nextRainTime && hoursFromNow >= 0) {
-                nextRainTime = hoursFromNow;
+            if (meetsSensitivity) {
+                rainExpected = true;
+                // Estimate chance of rain based on weather condition
+                let currentChance = 0;
+                if (weatherCode >= 500 && weatherCode < 600) { // Rain codes
+                    currentChance = forecast.pop * 100 || 0;
+                } else if (weatherCode >= 300 && weatherCode < 400) { // Drizzle codes
+                    currentChance = (forecast.pop * 100 || 0) * 0.7;
+                } else if (weatherCode >= 200 && weatherCode < 300) { // Thunderstorm codes
+                    currentChance = (forecast.pop * 100 || 0) * 1.2;
+                }
+                
+                chanceOfRain = Math.max(chanceOfRain, currentChance);
+                
+                // Record when rain is expected
+                if (!nextRainTime && hoursFromNow >= 0) {
+                    nextRainTime = hoursFromNow;
+                }
             }
         }
         
