@@ -5,6 +5,17 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>🌧 Smart Clothes Drying Alert</title>
     <link rel="stylesheet" href="styles.css">
+
+    <!-- Google Analytics -->
+    <script async src="https://www.googletagmanager.com/gtag/js?id=G-LHX92GHKS6"></script>
+    <script>
+      window.dataLayer = window.dataLayer || [];
+      function gtag(){dataLayer.push(arguments);}
+      gtag('js', new Date());
+      gtag('config', 'G-LHX92GHKS6');
+    </script>
+    <!-- End Google Analytics -->
+
     <!-- EmailJS SDK -->
     <script type="text/javascript" src="https://cdn.jsdelivr.net/npm/@emailjs/browser@3/dist/email.min.js"></script>
 </head>
@@ -34,7 +45,6 @@
                     <small class="help-text">Enter a city name (e.g., London, London,UK), ZIP code, or use the location button</small>
                 </div>
                 
-                <!-- New section for customizable alert thresholds -->
                 <div class="form-group">
                     <label for="rain-threshold">Rain Sensitivity:</label>
                     <select id="rain-threshold" name="rain-threshold">
@@ -45,7 +55,6 @@
                     <small class="help-text">Choose how sensitive you want to be to rain alerts</small>
                 </div>
                 
-                <!-- New section for multiple locations -->
                 <div class="form-group">
                     <label>Additional Locations:</label>
                     <div id="additional-locations">
@@ -63,7 +72,6 @@
             
             <div id="message-container"></div>
             
-            <!-- New section for displaying tracked locations -->
             <div id="tracked-locations" class="tracked-locations-section" style="display: none;">
                 <h3>Your Tracked Locations</h3>
                 <ul id="locations-list"></ul>
